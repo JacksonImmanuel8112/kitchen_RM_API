@@ -122,7 +122,7 @@ async def calculate_requirements(
         FROM recipe_master rm
         JOIN product_master pm ON rm.product_id = pm.id
         JOIN ingredient_master im ON rm.ingredient_id = im.id
-        LEFT JOIN IP_Solution_Category sc ON im.solution_category_id = sc.id
+        LEFT JOIN ip_solution_category sc ON im.solution_category_id = sc.id
         WHERE pm.name IN :names AND rm.is_deleted = 0
     """)
 
