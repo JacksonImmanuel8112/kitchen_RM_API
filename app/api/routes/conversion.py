@@ -146,8 +146,7 @@ async def calculate_requirements(
                     "qty": required_qty,
                     "uom": row.uom,
                     "ig_code": row.ig_code,
-                    "solution_category": row.solution_category,
-                    "product_name" : row.product_name
+                    "solution_category": row.solution_category
                 }
 
     # 🔹 Format response
@@ -157,8 +156,7 @@ async def calculate_requirements(
             "ig_code": info["ig_code"] or "N/A",
             "ingredient_name": name,
             "quantity": round(info["qty"], 2),
-            "uom": info["uom"],
-            "product_name" : info["product_name"]
+            "uom": info["uom"]
         }
         for name, info in ingredient_totals.items()
     ]
