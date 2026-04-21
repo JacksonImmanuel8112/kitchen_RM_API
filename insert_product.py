@@ -3,23 +3,56 @@ from app.core.config import DATABASE_URL
 
 engine = create_engine(DATABASE_URL)
 
-created_by = "system"
+created_by = "lakshman@indent.com"
 
+# ─── Product Type ID map (from your given list) ───────
 # PD_ID -> product_type_id
 pd_to_product_type_id = {
-    "VCHP001": 1,   "VCHP002": 2,   "VCHP003": 3,   "VCHP004": 4,
-    "VCHP005": 5,   "VCHP006": 6,   "VCHP007": 7,   "VCHP008": 8,
-    "VCHP009": 9,   "VCHP010": 10,  "VCHP011": 11,  "VCHP012": 12,
-    "VCHP018": 13,  "VCHP020": 14,  "VCHP021": 15,  "VCHP022": 16,
-    "VCHP023": 17,  "VCHP025": 18,  "VCHP026": 19,  "VCHP027": 20,
-    "VCHP028": 21,  "VCHP029": 22,  "VCHP030": 23,  "VCHP031": 24,
-    "VCHP032": 25,  "VCHP033": 26,  "VCHP034": 27,  "VCHP035": 28,
-    "VCHP036": 29,  "VCHP037": 30,  "VCHP046": 31,  "VCHP013": 32,
-    "VCHP014": 33,  "VCHP016": 34,  "VCHP017": 35,  "VCHP039": 36,
-    "VCHP040": 37,  "VCHP041": 38,  "VCHP042": 39,  "VCHP043": 40,
-    "VCHP044": 41,  "VCHP045": 42,
+    "VCHP001": 1,   # Ghee Pongal
+    "VCHP002": 2,   # Ghee Rava Kichadi
+    "VCHP003": 3,   # Tomato Chutney
+    "VCHP004": 4,   # Cauliflower Chops
+    "VCHP005": 5,   # Kadalai Curry
+    "VCHP006": 6,   # Poori Dal
+    "VCHP007": 7,   # Chole Channa
+    "VCHP008": 8,   # White Veg Kurma
+    "VCHP009": 9,   # Tiffin Sambar
+    "VCHP010": 10,  # Kaara Dosa Masala
+    "VCHP011": 11,  # Paneer Masala
+    "VCHP012": 12,  # Potato Masala
+    "VCHP018": 13,  # Sundals
+    "VCHP020": 14,  # Adai Pradhaman / Payasam
+    "VCHP021": 15,  # Ghee Ravakesari
+    "VCHP022": 16,  # Sweet pongal
+    "VCHP023": 17,  # Boiled Basmathi Rice
+    "VCHP025": 18,  # Boiled Noodles
+    "VCHP026": 19,  # Cooked Boiled Rice
+    "VCHP027": 20,  # Kathirika Gravy
+    "VCHP028": 21,  # Chapathi Side dishes
+    "VCHP029": 22,  # Saravana Special Biryani
+    "VCHP030": 23,  # Aviyal
+    "VCHP031": 24,  # Kootu
+    "VCHP032": 25,  # Curd Rice
+    "VCHP033": 26,  # Sambar Rice
+    "VCHP034": 27,  # Poriyal
+    "VCHP035": 28,  # Kuzhambu
+    "VCHP036": 29,  # Meals Sambar
+    "VCHP037": 30,  # Rasam
+    "VCHP046": 31,  # Phulka/Naan Sidedish
+    "VCHP013": 32,  # Appam Batter
+    "VCHP014": 33,  # Vada Batters
+    "VCHP016": 34,  # Roasted Coconut Chutney Masala
+    "VCHP017": 35,  # Roasted Malli Chutney Masala
+    "VCHP039": 36,  # Soups
+    "VCHP040": 37,  # Butter gravy
+    "VCHP041": 38,  # Yellow Gravy
+    "VCHP042": 39,  # Onion Masala
+    "VCHP043": 40,  # Masala Vada Batter
+    "VCHP044": 41,  # Bonda Batter
+    "VCHP045": 42,  # Meals Vada Batters
 }
 
+# ─── Raw data ─────────────────────────────────────────
 raw_data = """
 1	FG	VCHP001	Ghee Pongal	VCH001	Ghee Pongal
 2	FG	VCHP002	Ghee Rava Kichadi	VCH002	Ghee Rava Kichadi
@@ -148,32 +181,40 @@ raw_data = """
 125	SFG	VCHP045	Meals Vada Batters	VCH018	Spl Vada Batter
 """
 
-# ─── Parse — one product per VCH (PV_ID) row ──────────
-# PD_ID is only used to resolve product_type_id
-# PV_ID = code, variant name = product name
+# ─── Parse ────────────────────────────────────────────
+# product: unique by PD_ID  -> {pd_id, name, product_type_id}
+# variant: every row        -> {pv_id, name, pd_id (foreign key)}
 
-product_insert_list = []
-seen_pv_ids = set()
+seen_products = {}   # pd_id -> product name (first occurrence wins)
+variants = []        # all variant rows
 
 for line in raw_data.strip().split("\n"):
     parts = [p.strip() for p in line.strip().split("\t")]
     if len(parts) < 6:
         continue
 
-    _, solution_type, pd_id, _, pv_id, product_name = parts[:6]
+    _, solution_type, pd_id, product_name, pv_id, variant_name = parts[:6]
 
-    if pv_id in seen_pv_ids:
-        print(f"⚠️  Duplicate PV_ID skipped: {pv_id} - {product_name}")
-        continue
-    seen_pv_ids.add(pv_id)
+    # ── product (deduplicate by pd_id) ──
+    if pd_id not in seen_products:
+        seen_products[pd_id] = product_name
 
+    # ── variant (every row) ──
+    variants.append({
+        "code": pv_id,
+        "name": variant_name,
+        "pd_id": pd_id,       # used after product insert to resolve FK
+    })
+
+# ─── Build product insert list ────────────────────────
+product_insert_list = []
+for pd_id, product_name in seen_products.items():
     product_type_id = pd_to_product_type_id.get(pd_id)
     if product_type_id is None:
-        print(f"⚠️  No product_type_id for PD_ID={pd_id}, skipping {pv_id} - {product_name}")
+        print(f"⚠️  No product_type_id mapping for {pd_id}, skipping")
         continue
-
     product_insert_list.append({
-        "code": pv_id,
+        "code": pd_id,
         "name": product_name,
         "product_type_id": product_type_id,
         "is_active": 1,
@@ -185,15 +226,64 @@ if not product_insert_list:
     print("❌ No products to insert, exiting.")
     exit()
 
-print(f"📋 Total products to insert: {len(product_insert_list)}")  # should print 125
-
-# ─── Insert ───────────────────────────────────────────
+# ─── Insert & fetch back IDs ─────────────────────────
 product_query = text("""
-    INSERT INTO product_master (code, name, product_type_id, is_active, is_deleted, created_by)
+    INSERT INTO product (code, name, product_type_id, is_active, is_deleted, created_by)
     VALUES (:code, :name, :product_type_id, :is_active, :is_deleted, :created_by)
 """)
 
+variant_query = text("""
+    INSERT INTO product_variant (code, name, product_id, is_active, is_deleted, created_by)
+    VALUES (:code, :name, :product_id, :is_active, :is_deleted, :created_by)
+""")
+
 with engine.connect() as conn:
+
+    # ── Step 1: Insert products ──────────────────────
     conn.execute(product_query, product_insert_list)
     conn.commit()
-    print(f"✅ {len(product_insert_list)} products inserted into product_master.")
+    print(f"✅ {len(product_insert_list)} products inserted.")
+
+    # ── Step 2: Fetch inserted product IDs ──────────
+    # Map pd_id (code) -> DB id for variant FK
+    codes = [p["code"] for p in product_insert_list]
+    placeholders = ",".join(f":c{i}" for i in range(len(codes)))
+    fetch_query = text(f"SELECT id, code FROM product WHERE code IN ({placeholders})")
+    params = {f"c{i}": code for i, code in enumerate(codes)}
+
+    result = conn.execute(fetch_query, params).fetchall()
+    product_id_map = {row.code: row.id for row in result}  # pd_id -> DB id
+
+    # ── Step 3: Build variant insert list ───────────
+    variant_insert_list = []
+    seen_variants = set()
+
+    for v in variants:
+        if v["code"] in seen_variants:
+            print(f"⚠️  Duplicate variant skipped: {v['code']} - {v['name']}")
+            continue
+        seen_variants.add(v["code"])
+
+        product_id = product_id_map.get(v["pd_id"])
+        if product_id is None:
+            print(f"⚠️  No product found for pd_id={v['pd_id']}, skipping variant {v['code']}")
+            continue
+
+        variant_insert_list.append({
+            "code": v["code"],
+            "name": v["name"],
+            "product_id": product_id,
+            "is_active": 1,
+            "is_deleted": 0,
+            "created_by": created_by,
+        })
+
+    # ── Step 4: Insert variants ──────────────────────
+    if not variant_insert_list:
+        print("❌ No variants to insert.")
+    else:
+        conn.execute(variant_query, variant_insert_list)
+        conn.commit()
+        print(f"✅ {len(variant_insert_list)} product variants inserted.")
+
+print("🎉 All done!")
