@@ -129,6 +129,7 @@ async def calculate_requirements(
     recipes = db.execute(query, {"names": tuple(product_names)}).fetchall()
 
     ingredient_totals = {}
+    product_wise_list = []
 
     # 🔹 Calculate
     for row in recipes:
@@ -139,6 +140,17 @@ async def calculate_requirements(
                 float(row.ingredient_qty) / float(row.yield_qty)
             )
 
+            # Product-wise detail
+            product_wise_list.append({
+                "product_name": row.product_name,
+                "solution_category": row.solution_category or "N/A",
+                "ig_code": row.ig_code or "N/A",
+                "ingredient_name": row.ingredient_name,
+                "quantity": round(required_qty, 2),
+                "uom": row.uom
+            })
+
+            # Consolidated total
             if row.ingredient_name in ingredient_totals:
                 ingredient_totals[row.ingredient_name]["qty"] += required_qty
             else:
@@ -161,4 +173,7 @@ async def calculate_requirements(
         for name, info in ingredient_totals.items()
     ]
 
-    return {"ingredients": result_list}
+    return {
+        "ingredients": result_list,
+        "product_ingredients": product_wise_list
+    }

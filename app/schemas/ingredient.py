@@ -1,14 +1,17 @@
 from pydantic import BaseModel
+from typing import Optional
 
 class IngredientBase(BaseModel):
     name: str
-    uom: str
-    cost_per_unit: float
+    code : str
+    uom: Optional[str] = None
+    price: Optional[float] = None
 
 class IngredientCreate(IngredientBase):
     pass
 
 class IngredientUpdate(IngredientBase):
+    id: int
     pass
 
 class IngredientResponse(IngredientBase):
