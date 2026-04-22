@@ -115,6 +115,7 @@ async def calculate_requirements(
             pm.name as product_name,
             im.name as ingredient_name,
             im.code as ig_code,
+            im.price as price,
             sc.name as solution_category,
             rm.yield_qty,
             rm.qty as ingredient_qty,
@@ -146,8 +147,9 @@ async def calculate_requirements(
                 "solution_category": row.solution_category or "N/A",
                 "ig_code": row.ig_code or "N/A",
                 "ingredient_name": row.ingredient_name,
-                "quantity": round(required_qty, 2),
-                "uom": row.uom
+                "quantity": round(required_qty, 3),
+                "uom": row.uom,
+                "price" : row.price
             })
 
             # Consolidated total
@@ -158,6 +160,7 @@ async def calculate_requirements(
                     "qty": required_qty,
                     "uom": row.uom,
                     "ig_code": row.ig_code,
+                     "price" : row.price,
                     "solution_category": row.solution_category
                 }
 
@@ -167,8 +170,9 @@ async def calculate_requirements(
             "solution_category": info["solution_category"] or "N/A",
             "ig_code": info["ig_code"] or "N/A",
             "ingredient_name": name,
-            "quantity": round(info["qty"], 2),
-            "uom": info["uom"]
+            "quantity": round(info["qty"], 3),
+            "uom": info["uom"],
+            "price" : round(info["price"],2)
         }
         for name, info in ingredient_totals.items()
     ]
